@@ -66,7 +66,16 @@ if __name__ == '__main__':
     for i in range(args.n_loop):
         torch.cuda.synchronize()
         start_time = time.time()
-        error_mm = film1.SpinLLG_RK4()
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_mm1'),
+            record_shapes=True,
+            with_stack=True
+        ) as prof:
+            error_mm = film1.SpinLLG_RK4()
         torch.cuda.synchronize()
         end_time = time.time()
         spin_step_times[i] = end_time - start_time
@@ -79,7 +88,16 @@ if __name__ == '__main__':
     for i in range(args.n_loop):
         torch.cuda.synchronize()
         start_time = time.time()
-        film1.Demag()
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_mm2'),
+            record_shapes=True,
+            with_stack=True
+        ) as prof:
+            film1.Demag()
         torch.cuda.synchronize()
         end_time = time.time()
         hd_calc_times[i] = end_time - start_time

@@ -78,7 +78,16 @@ if __name__ == '__main__':
     for i in range(args.n_loop):
         torch.cuda.synchronize()
         start_time = time.time()
-        error_un = film2.SpinLLG_RK4_unetHd()
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_unet1'),
+            record_shapes=True,
+            with_stack=True
+        ) as prof:
+            error_un = film2.SpinLLG_RK4_unetHd()
         torch.cuda.synchronize()
         end_time = time.time()
         spin_step_times[i] = end_time - start_time
@@ -90,7 +99,16 @@ if __name__ == '__main__':
     for i in range(args.n_loop):
         torch.cuda.synchronize()
         start_time = time.time()
-        MAG2305.MFNN(film2.Spin)
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_unet2'),
+            record_shapes=True,
+            with_stack=True
+        ) as prof:
+            MAG2305.MFNN(film2.Spin)
         torch.cuda.synchronize()
         end_time = time.time()
         hd_calc_times[i] = end_time - start_time
