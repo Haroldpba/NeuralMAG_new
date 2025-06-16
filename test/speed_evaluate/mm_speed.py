@@ -63,26 +63,51 @@ if __name__ == '__main__':
     ######################
     #MAG2305 spin calc speed test
     spin_step_times = torch.zeros(args.n_loop).to(device)
-    for i in range(args.n_loop):
-        torch.cuda.synchronize()
-        start_time = time.time()
-        error_mm = film1.SpinLLG_RK4()
-        torch.cuda.synchronize()
-        end_time = time.time()
-        spin_step_times[i] = end_time - start_time
+
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA
+        ],
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_mm1'),
+        schedule=torch.profiler.schedule(wait=4, warmup=4, active=1, repeat=False),
+        record_shapes=True,
+        with_stack=True
+    ) as prof:
+        for i in range(args.n_loop):
+            torch.cuda.synchronize()
+            start_time = time.time()
+            error_mm = film1.SpinLLG_RK4()
+            torch.cuda.synchronize()
+            end_time = time.time()
+            spin_step_times[i] = end_time - start_time
+            if i < 10:
+                prof.step()
 
     Spin_speed = torch.mean(spin_step_times[10:]).item()
 
 
     # FFT Hd calculation speed test
     hd_calc_times = torch.zeros(args.n_loop).to(device)
-    for i in range(args.n_loop):
-        torch.cuda.synchronize()
-        start_time = time.time()
-        film1.Demag()
-        torch.cuda.synchronize()
-        end_time = time.time()
-        hd_calc_times[i] = end_time - start_time
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA
+        ],
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_mm2'),
+        schedule=torch.profiler.schedule(wait=4, warmup=4, active=1, repeat=False),
+        record_shapes=True,
+        with_stack=True
+    ) as prof:
+        for i in range(args.n_loop):
+            torch.cuda.synchronize()
+            start_time = time.time()
+            film1.Demag()
+            torch.cuda.synchronize()
+            end_time = time.time()
+            hd_calc_times[i] = end_time - start_time
+            if i < 10:
+                prof.step()
 
     Hd_speed = torch.mean(hd_calc_times[10:]).item()*4.0
 

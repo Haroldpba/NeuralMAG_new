@@ -62,38 +62,64 @@ if __name__ == '__main__':
     parser.add_argument('--Hext_vec',   type=Culist, default=(1,0,0),   help='external field vector (default:(1,0,0))')
 
     parser.add_argument('--dtime',      type=float,  default=1.0e-13,   help='real time step (default: 1.0e-13)')
-    parser.add_argument('--n_loop',     type=int,    default=100,       help='loop number (default: 100)')
+    parser.add_argument('--n_loop',     type=int,    default=10,       help='loop number (default: 100)')
     args = parser.parse_args()
     
     device = torch.device("cuda:{}".format(args.gpu))
     
     # Initialize MAG models, prepare films and load Unet model.
     film2 = initialize_models(args, device)
+    print("Model initialized")
 
     #########################
     #  NeuralMAG speed test #
     #########################
     # NeuralMAG spin calc speed test
     spin_step_times = torch.zeros(args.n_loop).to(device)
-    for i in range(args.n_loop):
-        torch.cuda.synchronize()
-        start_time = time.time()
-        error_un = film2.SpinLLG_RK4_unetHd()
-        torch.cuda.synchronize()
-        end_time = time.time()
-        spin_step_times[i] = end_time - start_time
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA
+        ],
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_unet1'),
+        schedule=torch.profiler.schedule(wait=4, warmup=4, active=1, repeat=False),
+        record_shapes=True,
+        with_stack=True
+    ) as prof:
+        for i in range(args.n_loop):
+            torch.cuda.synchronize()
+            start_time = time.time()
+            error_un = film2.SpinLLG_RK4_unetHd()
+            torch.cuda.synchronize()
+            end_time = time.time()
+            spin_step_times[i] = end_time - start_time
+            if i < 10:
+                prof.step()
 
     Spin_speed = torch.mean(spin_step_times[10:]).item()
 
     # Unet Hd calculation speed test
     hd_calc_times = torch.zeros(args.n_loop).to(device)
-    for i in range(args.n_loop):
-        torch.cuda.synchronize()
-        start_time = time.time()
-        MAG2305.MFNN(film2.Spin)
-        torch.cuda.synchronize()
-        end_time = time.time()
-        hd_calc_times[i] = end_time - start_time
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA
+        ],
+        on_trace_ready=torch.profiler.tensorboard_trace_handler('./log_unet2'),
+        schedule=torch.profiler.schedule(wait=4, warmup=4, active=1, repeat=False),
+        record_shapes=True,
+        with_stack=True
+    ) as prof:
+        for i in range(args.n_loop):
+            torch.cuda.synchronize()
+            start_time = time.time()
+            MAG2305.MFNN(film2.Spin)
+            torch.cuda.synchronize()
+            end_time = time.time()
+            hd_calc_times[i] = end_time - start_time
+            print("unet 2 prof.step ", i)
+            if i < 10:
+                prof.step()
 
     Hd_speed = torch.mean(hd_calc_times[10:]).item()*4.0
 
