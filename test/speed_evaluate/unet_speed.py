@@ -7,18 +7,22 @@ import torch
 
 from libs.misc import Culist, spin_prepare, create_trt_model
 import libs.MAG2305 as MAG2305
-from libs.UNet_base import UNet
+
 
 
 def load_unet_model(args, device):
     # load Unet Model
     inch = args.layers*3
-    model = UNet(kc=args.krn, inc=inch, ouc=inch).eval().to(device)
     # Creat trt model
     if args.trt=='True':
+        from libs.UNet_base_trt import UNet
+        model = UNet(kc=args.krn, inc=inch, ouc=inch).eval().to(device)
+        model.set_input_size((1, inch, args.w, args.w))
         model = create_trt_model(model, inch, args.w, torch.float16, device)
         print('Unet model loaded with TensorRT')
     else:
+        from libs.UNet_base import UNet
+        model = UNet(kc=args.krn, inc=inch, ouc=inch).eval().to(device)
         print('Unet model loaded')
     MAG2305.load_model(model)
     
