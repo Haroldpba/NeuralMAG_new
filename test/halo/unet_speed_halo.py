@@ -9,7 +9,7 @@ import torch.profiler as profiler
 from libs.misc import Culist, spin_prepare, create_trt_model
 import libs.MAG2305_halo as MAG2305
 # from UNet_nccl import UNet
-from UNetManager_test import UNetManager
+from libs.UNetManager import UNetManager
 import multiprocessing as mp
 
 

@@ -1,8 +1,9 @@
 import multiprocessing as mp
+from datetime import datetime
 
 import torch
 from torch import nn
-from UNet_nccl_test import UNet
+from .UNet_nccl import UNet
 import torch.profiler as profiler
 class UNetManager:
     def __init__(self, kc, inc, ouc, device_list, split, cpkt, input_shape):
@@ -38,18 +39,14 @@ class UNetManager:
         model._setup(rank, len(model_args[3]))
         device = model_args[3][rank]
         split_y, split_x = model_args[4]
-        # with profiler.profile(
-        #     activities=[
-        #         profiler.ProfilerActivity.CPU,
-        #         profiler.ProfilerActivity.CUDA,
-        #     ],
-        #     on_trace_ready=profiler.tensorboard_trace_handler(f'./log_rank_{rank}'),
-        #     record_shapes=True,
-        #     profile_memory=True,
-        #     with_stack=True
-        # ) as p:
         while True:
+            # t1 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "before get input", t1, flush=True)
+
             signal = task_queues.get()
+            
+            # t2 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "after get input", t2, flush=True)
             if signal is None:
                 break 
 
@@ -65,14 +62,27 @@ class UNetManager:
                                     i*split_H:(i+1)*split_H, 
                                     j*split_W:(j+1)*split_W]
             model._unet_dist(rank, local_input, local_output, result_queue)
-                # p.step()
+            # t4 = datetime.now().strftime("%H:%M:%S.%f")[:-3] 
+            # print(rank, "after model forward", t4, flush=True)
+
     def predict(self, input_tensor: torch.Tensor):
+        # t1 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        # print("start predict", t1, flush=True)
         self.input_shm.copy_(input_tensor)
+        # t2 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        # print("after share memory", t2, flush=True)
         for rank, q in enumerate(self.task_queues):
             q.put("start")
 
         for rank,q in enumerate(self.result_queue):
+            # t3 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "before get output", t3)
+
             q.get()
+
+            # t4 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "got output", t4)
+
         return self.output_shm
 
     def close(self):

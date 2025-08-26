@@ -1,7 +1,4 @@
-import re
-from numpy import var
 import torch
-import os
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist

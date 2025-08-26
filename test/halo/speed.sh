@@ -4,7 +4,7 @@ ulimit -s unlimited
 ulimit -v unlimited
 ulimit -c unlimited
 # Temporarily set PYTHONPATH to include the top-level directory
-export PYTHONPATH=$(dirname $(pwd)):$PYTHONPATH
+export PYTHONPATH=$(dirname $(dirname $(pwd))):$PYTHONPATH
 # mkdir -p ./log/h200
 mkdir -p ./log/halo
 for width in 1024;do
