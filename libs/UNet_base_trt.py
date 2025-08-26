@@ -1,10 +1,8 @@
-from pyexpat import model
-from requests import get
+from math import e
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import List
-import math
+
 def initialize_model_with_pretrained_weights(new_model, pretrained_model_path):
     pretrained_weights = torch.load(pretrained_model_path)
     
@@ -92,8 +90,9 @@ class upsample_0(nn.Module):
 
 # 32*32
 class UNet(nn.Module):
-    def __init__(self, kc=16, inc=3, ouc=3):
+    def __init__(self, kc=16, inc=3, ouc=3, device='cuda:0'):
         super(UNet, self).__init__()
+        self.device = device
         self.s0 = nn.Conv2d(  inc,   1*kc,  3,1,1)
         self.s = downsample( 1*kc,  1*kc,  3,1,1, drop_out=0.0)
 
@@ -141,12 +140,15 @@ class UNet(nn.Module):
         print(f"layer_num: {self.layer_num}")
 
         dtype = torch.float16 if self.is_half else torch.float32
-        device = torch.device("cuda:0")
+        device = self.device
 
-        for i in range(11):
-            layer_size = size // (2 ** i)
+        for i in range(15):
+            layer_size = size // (2 ** i) 
+            if layer_size < 1:
+                layer_size = 1
             buf = torch.empty((batch, 96, layer_size, layer_size), dtype=dtype, device=device)
             self.register_buffer(f"layerout_{i}", buf, persistent=False)
+            # setattr(self, f"layerout_{i}", buf)
     def get_layerout(self, idx: int) -> torch.Tensor:
         if idx == 0:
             return self.layerout_0
@@ -170,6 +172,15 @@ class UNet(nn.Module):
             return self.layerout_9
         elif idx == 10:
             return self.layerout_10
+        elif idx == 11:
+            return self.layerout_11
+        elif idx == 12:
+            return self.layerout_12
+        elif idx == 13:
+            return self.layerout_13
+        elif idx == 14:
+            return self.layerout_14
+        
         else:
             raise ValueError(f"Invalid idx: {idx}")
 
@@ -180,6 +191,7 @@ class UNet(nn.Module):
         layer_num = self.layer_num
         layer_out0 = self.get_layerout(0)
         layer_out0[:,48:,:,:].copy_(self.s0(x))
+
         for i in range(layer_num):
             input_buf = self.get_layerout(i)
             output_buf = self.get_layerout(i + 1)
@@ -187,7 +199,6 @@ class UNet(nn.Module):
             output_buf[:,48:,:,:].copy_(out)
         layer_out_last =self.get_layerout(layer_num)
         layer_out_last[:,0:48,:,:].copy_(layer_out_last[:,48:,:,:])
-
         for i in range(layer_num):
             input_buf = self.get_layerout(layer_num-i)
             output_buf = self.get_layerout(layer_num-i-1)

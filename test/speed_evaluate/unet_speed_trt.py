@@ -1,0 +1,153 @@
+# -*- coding: utf-8 -*-
+
+import numpy as np
+import time
+import argparse
+import torch
+import torch.profiler as profiler
+from libs.misc import Culist, spin_prepare, create_trt_model
+import libs.MAG2305_s as MAG2305
+from libs.UNet_base_trt import UNet
+                                                                                                                                                  
+def load_unet_model(args, device):
+    # load Unet Model
+    inch = args.layers*3
+    model = UNet(kc=args.krn, inc=inch,ouc = inch, device=device).eval().to(device)
+    cpkt = "/data/home/caiyq/test_pal/speed_evaluate/model_fs.pt"
+    model.load_state_dict(torch.load(cpkt, map_location=device))
+    # Creat trt model
+    if args.trt=='True':
+        # model = create_trt_model(model, inch, args.w, torch.float16, device)
+        MAG2305.unet_half_precision()
+        model.half_precision()
+        model.set_input_size((1, inch, args.w, args.w))
+        for param in model.parameters():
+            param.requires_grad = False
+        model = torch.compile(model)
+        print('Unet model loaded with TensorRT')
+    else:
+        model.set_input_size((1, inch, args.w, args.w))
+        print('Unet model loaded')
+    MAG2305.load_model(model)
+    
+
+def initialize_models(args, device):
+    #load Unet model
+    load_unet_model(args, device)
+
+    #Initialize MAG2305 models.
+    film2 = MAG2305.mmModel(types='bulk', size=(args.w, args.w, args.layers), cell=(3,3,3), 
+                            Ms=args.Ms, Ax=args.Ax, Ku=args.Ku, Kvec=args.Kvec, 
+                            device="cuda:" + str(args.gpu)
+                            )
+    print('Creating {} layer models \n'.format(args.layers))
+
+    # spin initialization cases
+    spin_split = np.random.randint(low=2, high=32)
+    rand_seed = np.random.randint(low=0, high=100000)
+    spin = spin_prepare(spin_split, film2, rand_seed)
+    film2.SpinInit(spin)
+    print('spin shape',film2.Spin.shape)
+
+    return film2
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Unet speed test')
+    parser.add_argument('--gpu',        type=int,   default=0,         help='GPU ID (default: 0)')
+    parser.add_argument('--krn',        type=int,   default=48,        help='unet first layer kernels (default: 16)')
+    parser.add_argument('--trt',        type=str,   default='True',   help='unet with tensorRT (default: False)')
+    parser.add_argument('--profile',    type=str,   default='False',   help='unet with profiler (default: False)')
+
+    parser.add_argument('--w',          type=int,    default=1024,        help='MAG model size (default: 32)')
+    parser.add_argument('--layers',     type=int,    default=2,         help='MAG model layers (default: 1)')
+
+    parser.add_argument('--Ms',         type=float,  default=1000,      help='MAG model Ms (default: 1000)')
+    parser.add_argument('--Ax',         type=float,  default=0.5e-6,    help='MAG model Ax (default: 0.5e-6)')
+    parser.add_argument('--Ku',         type=float,  default=0.0,       help='MAG model Ku (default: 0.0)')
+    parser.add_argument('--Kvec',       type=Culist, default=(0,0,1),   help='MAG model Kvec (default: (0,0,1))')
+    parser.add_argument('--damping',    type=float,  default=0.1,       help='MAG model damping (default: 0.1)')
+    parser.add_argument('--Hext_val',   type=float,  default=0,         help='external field value (default: 0.0)')
+    parser.add_argument('--Hext_vec',   type=Culist, default=(1,0,0),   help='external field vector (default:(1,0,0))')
+
+    parser.add_argument('--dtime',      type=float,  default=1.0e-13,   help='real time step (default: 1.0e-13)')
+    parser.add_argument('--n_loop',     type=int,    default=100,       help='loop number (default: 100)')
+    args = parser.parse_args()
+    
+    device = torch.device("cuda:{}".format(args.gpu))
+    print(device)
+    # Initialize MAG models, prepare films and load Unet model.
+    film2 = initialize_models(args, device)
+
+    #########################
+    #  NeuralMAG speed test #
+    #########################
+    # NeuralMAG spin calc speed test
+    spin_step_times = torch.zeros(args.n_loop)
+    if args.profile == 'True':
+        with profiler.profile(
+        activities=[
+            profiler.ProfilerActivity.CPU,
+            profiler.ProfilerActivity.CUDA,
+        ],
+        on_trace_ready=profiler.tensorboard_trace_handler(f'./log_spin_trt_{args.w}'),
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    ) as p:
+            for i in range(args.n_loop):
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
+                error_un = film2.SpinLLG_RK4_unetHd()
+                torch.cuda.synchronize(device=device)
+                end_time = time.time()
+                spin_step_times[i] = end_time - start_time
+                p.step()
+        Spin_speed = torch.mean(spin_step_times[10:]).item()
+
+    else:
+        for i in range(args.n_loop):
+            if i == 10: 
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
+            error_un = film2.SpinLLG_RK4_unetHd()
+        torch.cuda.synchronize(device=device)
+        end_time = time.time()
+        Spin_speed = (end_time - start_time) / (args.n_loop - 10)
+
+    # Unet Hd calculation speed test
+    hd_calc_times = torch.zeros(args.n_loop)
+    if args.profile == 'True':
+        with profiler.profile(
+        activities=[
+            profiler.ProfilerActivity.CPU,
+            profiler.ProfilerActivity.CUDA,
+        ],
+        on_trace_ready=profiler.tensorboard_trace_handler(f'./log_hd_trt_{args.w}_{args.gpu}'),
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True
+    ) as p:
+            for i in range(args.n_loop):
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
+                MAG2305.MFNN(film2.Spin)
+                torch.cuda.synchronize(device=device)
+                end_time = time.time()
+                hd_calc_times[i] = end_time - start_time
+                p.step()
+        Hd_speed = torch.mean(hd_calc_times[10:]).item()*4
+    else:
+        for i in range(args.n_loop):
+            if i == 10:
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
+            MAG2305.MFNN(film2.Spin)
+        torch.cuda.synchronize(device=device)
+        end_time = time.time()
+        Hd_speed = (end_time - start_time) / (args.n_loop - 10) * 4
+
+    if args.trt=='True':
+        print(f'||Unt_trt_size:  {args.w} || Spin calc speed: {Spin_speed:.1e} s || Hd calc speed: {Hd_speed:.1e} s||')
+    else:
+        print(f'||Unt_base_size: {args.w} || Spin calc speed: {Spin_speed:.1e} s || Hd calc speed: {Hd_speed:.1e} s||')
