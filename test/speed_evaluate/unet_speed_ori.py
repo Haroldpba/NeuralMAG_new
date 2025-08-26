@@ -94,18 +94,18 @@ if __name__ == '__main__':
                 torch.cuda.synchronize(device=device)
                 end_time = time.time()
                 spin_step_times[i] = end_time - start_time
-                if i>=10 and i <20:
-                    p.step()
+                p.step()
+        Spin_speed = torch.mean(spin_step_times[10:]).item()
+
     else:
         for i in range(args.n_loop):
-            torch.cuda.synchronize(device=device)
-            start_time = time.time()
+            if i == 10:
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
             error_un = film2.SpinLLG_RK4_unetHd()
-            torch.cuda.synchronize(device=device)
-            end_time = time.time()
-            spin_step_times[i] = end_time - start_time
-
-    Spin_speed = torch.mean(spin_step_times[10:]).item()
+        torch.cuda.synchronize(device=device)
+        end_time = time.time()
+        Spin_speed = (end_time - start_time) / (args.n_loop - 10)
 
     # Unet Hd calculation speed test
     hd_calc_times = torch.zeros(args.n_loop)
@@ -127,18 +127,18 @@ if __name__ == '__main__':
                 torch.cuda.synchronize(device=device)
                 end_time = time.time()
                 hd_calc_times[i] = end_time - start_time
-                if i>=10 and i <20:
-                    p.step()
+                p.step()
+        Hd_speed = torch.mean(hd_calc_times[10:]).item() * 4
     else:
         for i in range(args.n_loop):
-            torch.cuda.synchronize(device=device)
-            start_time = time.time()
+            if i == 10:
+                torch.cuda.synchronize(device=device)
+                start_time = time.time()
             MAG2305.MFNN(film2.Spin)
-            torch.cuda.synchronize(device=device)
-            end_time = time.time()
-            hd_calc_times[i] = end_time - start_time
+        torch.cuda.synchronize(device=device)
+        end_time = time.time()
+        Hd_speed = (end_time - start_time) / (args.n_loop - 10) * 4
 
-    Hd_speed = torch.mean(hd_calc_times[10:]).item()*4
 
     if args.trt=='True':
         print(f'||Unt_ori_trt:  {args.w} || Spin calc speed: {Spin_speed:.1e} s || Hd calc speed: {Hd_speed:.1e} s||')

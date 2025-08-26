@@ -81,7 +81,6 @@ def gather_slices(rank, local_slice, split, device_list):
         gathered_slices = [torch.empty((B, C, split_H, split_W), 
                                     device=device_list[rank]) 
                                     for i in range(len(device_list))]
-        dist.barrier()
         dist.gather(local_slice, gather_list=gathered_slices, dst=0)
         output = torch.empty((B, C, size, size), device=device_list[rank])
         for i in range(split_y):
@@ -91,7 +90,6 @@ def gather_slices(rank, local_slice, split, device_list):
                        j*split_W:(j+1)*split_W] = gathered_slices[i*split_x + j]
         return output
     else:
-        dist.barrier()
         dist.gather(local_slice, gather_list=None, dst=0)
         return None      
 
