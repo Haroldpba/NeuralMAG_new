@@ -4,3 +4,4 @@ test/speed_evaluate/speed_*
 test/speed_evaluate/libs/__pycache__/
 
 test/halo/log/
+test/halo/log_rank_*/

@@ -9,14 +9,14 @@ import torch.profiler as profiler
 from libs.misc import Culist, spin_prepare, create_trt_model
 import libs.MAG2305_halo as MAG2305
 # from UNet_nccl import UNet
-from libs.UNetManager import UNetManager
+from libs.UNetManager_s import UNetManager
 import multiprocessing as mp
 
 
 def load_unet_model(args, device_list):
     # load Unet Model
     inch = args.layers*3
-    ckpt = 'model_fs.pt'
+    ckpt = '../cpkt/k48/model.pt'
     model = UNetManager(kc=48, inc=6, ouc=6, device_list=device_list, split=(2,2), cpkt=ckpt,input_shape=(1, 6, args.w, args.w))
 
     # model = UNet(kc=48, inc=6, ouc=6, device_list=device_list, split= 2).eval().to(torch.device('cuda:0'))
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                     start_time = time.time()
 
                 MAG2305.MFNN(film2.Spin)
-            p.step()
+                p.step()
 
             for d in args.gpu:
                 torch.cuda.synchronize(d)

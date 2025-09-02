@@ -48,7 +48,7 @@ def initialize_model_with_pretrained_weights(new_model, pretrained_model_path):
     new_model.load_state_dict(new_model_state_dict)
 
 def test():
-    ckpt = '/data/home/caiyq/NeuralMAG_new/test/cpkt/k48/model.pt'
+    ckpt = '../cpkt/k48/model.pt'
     print('Model base loaded from:', ckpt)
     device_list = ['cuda:0', 'cuda:1', 'cuda:2', 'cuda:5']
     device = torch.device('cuda:0')

@@ -509,7 +509,7 @@ class UNet(nn.Module):
 
             local_output.copy_(output)
 
-            output_flag.fill_(1)
+            output_flag[rank] = 1
 
     def forward(self, x):        
         x = x.to(self.device_list[0]) 

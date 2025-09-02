@@ -1,11 +1,9 @@
 import multiprocessing as mp
 from datetime import datetime
-from threading import local
-from time import sleep
 
 import torch
 from torch import nn
-from UNet_nccl_s import UNet
+from .UNet_nccl_s import UNet
 import torch.profiler as profiler
 class UNetManager:
     def __init__(self, kc, inc, ouc, device_list, split, cpkt, input_shape):

@@ -26,7 +26,7 @@ for width in 1024;do
         # python unet_speed_trt_ori.py --gpu 0 --w $width --layers 2 --trt True
         # python unet_speed_ser.py --gpu 0 --w $width --layers 2 --trt False
         # python unet_speed_pal.py --gpu 0 --w $width --layers 2 --trt False
-        python unet_speed_halo.py   --gpu 0 1 2 3 --w $width --layers 2 --trt False --profile False
+        python unet_speed_halo.py   --gpu 0 3 4 5 --w $width --layers 2 --trt False --profile False
         # python mm_speed.py   --gpu 0 --w $width --layers 2 --profile False
     } >> "$LOG_FILE"
 
