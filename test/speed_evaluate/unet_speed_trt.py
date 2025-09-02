@@ -13,7 +13,7 @@ def load_unet_model(args, device):
     # load Unet Model
     inch = args.layers*3
     model = UNet(kc=args.krn, inc=inch,ouc = inch, device=device).eval().to(device)
-    cpkt = "/data/home/caiyq/test_pal/speed_evaluate/model_fs.pt"
+    cpkt = "../cpkt/k48/model.pt"
     model.load_state_dict(torch.load(cpkt, map_location=device))
     # Creat trt model
     if args.trt=='True':

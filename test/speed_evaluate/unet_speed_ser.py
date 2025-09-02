@@ -12,7 +12,7 @@ from libs.UNet_ser import UNet
 
 def load_unet_model(args, device):
     # load Unet Model
-    ckpt = '/data/home/caiyq/NeuralMAG_new/test/cpkt/k48/model.pt'
+    ckpt = '../cpkt/k48/model.pt'
     inch = args.layers*3
     model = UNet(kc=args.krn, inc=inch, ouc=inch, device = device, split = (2,2)).eval().to(device)
     model.load_weights(ckpt)
