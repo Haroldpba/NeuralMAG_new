@@ -39,44 +39,44 @@ class UNetManager:
         model._setup(rank, len(model_args[3]))
         device = model_args[3][rank]
         split_y, split_x = model_args[4]
-        with profiler.profile(
-            activities=[
-                profiler.ProfilerActivity.CPU,
-                profiler.ProfilerActivity.CUDA,
-            ],
-            on_trace_ready=profiler.tensorboard_trace_handler(f'./log_rank_{rank}'),
-            record_shapes=True,
-            profile_memory=True,
-            with_stack=True
-        ) as p:
-            while True:
-                # t1 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                # print(rank, "before get input", t1, flush=True)
+        # with profiler.profile(
+        #     activities=[
+        #         profiler.ProfilerActivity.CPU,
+        #         profiler.ProfilerActivity.CUDA,
+        #     ],
+        #     on_trace_ready=profiler.tensorboard_trace_handler(f'./log_rank_{rank}'),
+        #     record_shapes=True,
+        #     profile_memory=True,
+        #     with_stack=True
+        # ) as p:
+        while True:
+            # t1 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "before get input", t1, flush=True)
 
-                while input_flag[rank] == 0:
-                    continue
+            while input_flag.sum() < len(input_flag) and input_flag.sum() >= 0:
+                continue
 
-                if input_flag[rank] == -1:
-                    break
-                
-                # t2 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                # print(rank, "after get input", t2, flush=True)
+            if input_flag[rank] == -1:
+                break
+            
+            # t2 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            # print(rank, "after get input", t2, flush=True)
 
-                _, _, H, W = input_shm.shape
-                i = rank // split_x
-                j = rank % split_x
-                split_H = H // split_y
-                split_W = W // split_x
-                local_input = input_shm[:, :, 
-                                        i*split_H:(i+1)*split_H, 
-                                        j*split_W:(j+1)*split_W].to(device)
-                local_output = output_shm[:, :,
-                                        i*split_H:(i+1)*split_H, 
-                                        j*split_W:(j+1)*split_W]
-                model._unet_dist(rank, local_input, local_output, output_flag)
+            _, _, H, W = input_shm.shape
+            i = rank // split_x
+            j = rank % split_x
+            split_H = H // split_y
+            split_W = W // split_x
+            local_input = input_shm[:, :, 
+                                    i*split_H:(i+1)*split_H, 
+                                    j*split_W:(j+1)*split_W].to(device)
+            local_output = output_shm[:, :,
+                                    i*split_H:(i+1)*split_H, 
+                                    j*split_W:(j+1)*split_W]
+            model._unet_dist(rank, local_input, local_output, output_flag)
                 # t4 = datetime.now().strftime("%H:%M:%S.%f")[:-3] 
                 # print(rank, "after model forward", t4, flush=True)
-                p.step()
+                # p.step()
 
     def predict(self, input_tensor: torch.Tensor):
         # t1 = datetime.now().strftime("%H:%M:%S.%f")[:-3]
