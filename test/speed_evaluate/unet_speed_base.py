@@ -139,7 +139,6 @@ if __name__ == '__main__':
         end_time = time.time()
         Hd_speed = (end_time - start_time) / (args.n_loop - 10) * 4
 
-    Hd_speed = torch.mean(hd_calc_times[10:]).item()*4
 
     if args.trt=='True':
         print(f'||Unt_base_trt:  {args.w} || Spin calc speed: {Spin_speed:.1e} s || Hd calc speed: {Hd_speed:.1e} s||')
