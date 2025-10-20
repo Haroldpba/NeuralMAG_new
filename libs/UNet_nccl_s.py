@@ -505,9 +505,11 @@ class UNet(nn.Module):
             up_slice.synchronize_last()
             last_conv_output = up_slice.conv_last()
 
-            output = torch.where(last_conv_output >= 0, torch.exp(last_conv_output)-1, -torch.exp(-last_conv_output)+1).to(torch.device('cpu'))
-
-            local_output.copy_(output)
+            output = torch.where(last_conv_output >= 0, torch.exp(last_conv_output)-1, -torch.exp(-last_conv_output)+1)
+            with torch.profiler.record_function("marker_D2H"):
+                output = output.to(torch.device('cpu'))
+            with torch.profiler.record_function("marker_copy"):
+                local_output.copy_(output)
 
             output_flag[rank] = 1
 
