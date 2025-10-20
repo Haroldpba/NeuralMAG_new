@@ -5,3 +5,5 @@ test/speed_evaluate/libs/__pycache__/
 
 test/halo/log/
 test/halo/log_rank_*/
+
+*.sh
